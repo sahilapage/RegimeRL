@@ -1,0 +1,41 @@
+finiq-rl/
+│
+├── data/
+│   ├── raw/
+│   │   └── AAPL.csv                 # (optional) saved Yahoo Finance data
+│   ├── processed/
+│   │   └── windows.npy              # sliding windows (optional save)
+│
+├── datasets/
+│   └── market_dataset.py            # Custom PyTorch Dataset
+│
+├── models/
+│   ├── cnn.py                       # MarketCNN (DONE)
+│   ├── lstm.py                      # MarketLSTM (NEXT)
+│   ├── transformer.py               # (optional, later)
+│   └── encoder.py                   # CNN + LSTM fusion
+│
+├── env/
+│   └── trading_env.py               # Gym-style trading environment
+│
+├── rl/
+│   ├── ppo_train.py                 # PPO training loop
+│   └── ppo_eval.py                  # Evaluation & backtesting
+│
+├── utils/
+│   ├── data_loader.py               # Yahoo Finance loading
+│   ├── indicators.py                # RSI, EMA, volatility
+│   └── preprocessing.py             # scaling + windows
+│
+├── notebooks/
+│   ├── data_preprocessing.ipynb     # data → windows_tensor
+│   ├── cnn_test.ipynb                # CNN feature extraction (DONE)
+│   ├── lstm_test.ipynb               # LSTM testing (NEXT)
+│   └── env_debug.ipynb               # environment sanity checks
+│
+├── configs/
+│   └── config.yaml                  # window size, indicators, PPO params
+│
+├── requirements.txt
+├── README.md
+└── .gitignore
