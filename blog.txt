@@ -669,3 +669,251 @@ This concludes Phase 2 of the project.
 In the next part, I’ll explore whether training across multiple assets can stabilize behavior and recover lost opportunities without sacrificing risk control.
 
 Phase 3 is where things get truly interesting.
+
+
+Phase 3 — When Everything Broke (and Finally Made Sense)
+
+Up until Phase 2, my reinforcement learning trading system looked clean.
+
+I had:
+
+A CNN + LSTM encoder extracting market features
+
+A PPO agent trading a single asset
+
+A risk-aware reward penalizing drawdowns
+
+Walk-forward testing that actually made sense
+
+But Phase 3 changed the nature of the problem completely.
+
+Instead of training one agent per stock, I forced myself to ask a harder question:
+
+Can a single RL policy generalize across multiple assets without blowing up?
+
+This is where things stopped being “student-friendly” and started feeling like real research.
+
+Phase 3.1 — Moving from Single-Asset to Multi-Asset RL
+
+The idea was simple in theory:
+
+One shared PPO policy
+
+One shared CNN-LSTM encoder
+
+Multiple stocks (AAPL, MSFT, NVDA, TSLA)
+
+Random asset per episode during training
+
+In practice, this required building a Multi-Asset Trading Environment that:
+
+Randomly selects an asset at reset
+
+Shares the same action space
+
+Preserves realistic trading mechanics
+
+This was the first time I realized:
+
+Reinforcement learning doesn’t fail loudly — it fails silently if your environment is even slightly wrong.
+
+Phase 3.2 — Gym, Gymnasium, and Why My Code Kept Crashing
+
+The moment I plugged my custom environment into Stable-Baselines3, everything exploded.
+
+Errors like:
+
+env.reset() returning the wrong number of values
+
+env.step() returning 4 values when 5 were expected
+
+Missing seed() methods
+
+Silent API mismatches between Gym and Gymnasium
+
+At first, it felt like “library hell”.
+
+But this phase taught me something critical:
+
+Modern RL libraries assume Gymnasium semantics, even if you’re still using Gym.
+
+I had to:
+
+Rewrite reset() to return (obs, info)
+
+Rewrite step() to return (obs, reward, terminated, truncated, info)
+
+Add explicit seed() handling
+
+Ensure deterministic resets for reproducibility
+
+This wasn’t busywork — it was enforcing correct RL contracts.
+
+Phase 3.3 — The Terminal State Trap (Off-By-One Hell)
+
+Even after fixing APIs, my environment kept crashing at the end of episodes.
+
+Index errors like:
+
+index out of bounds for dimension 0
+
+
+The root cause?
+
+I was accessing prices before checking termination
+
+Terminal states were still trying to build new observations
+
+My environment assumed “one more step” always existed
+
+This led to a fundamental realization:
+
+In RL, terminal state handling is harder than action logic.
+
+The fix required:
+
+Guarding termination before any data access
+
+Storing the last valid observation
+
+Returning dummy observations at termination
+
+Never computing rewards using invalid indices
+
+This is the kind of bug that only appears when evaluation is actually correct.
+
+Phase 3.4 — The Zero-Trade Mystery
+
+Once the environment finally ran end-to-end, I saw something strange:
+
+The agent trained successfully
+
+Evaluation completed
+
+But the number of trades was zero across all assets
+
+At first, I assumed something was broken.
+
+It wasn’t.
+
+The agent had learned a loophole.
+
+Phase 3.5 — Policy Collapse Isn’t a Bug
+
+My action space was:
+
+0 → HOLD
+
+1 → BUY
+
+2 → SELL
+
+The PPO policy learned:
+
+“If I always SELL while holding no position, I minimize risk and avoid penalties.”
+
+This was a degenerate optimal policy under my reward.
+
+It wasn’t stupidity — it was mathematical correctness.
+
+This is where I learned a brutal RL lesson:
+
+If your action space allows invalid actions, PPO will exploit them.
+
+Phase 3.6 — Fixing the Action Space (The Right Way)
+
+Instead of forcing trades or hacking rewards, I fixed the environment properly:
+
+SELL was masked when no position existed
+
+BUY was masked when already holding
+
+HOLD received a tiny inactivity penalty
+
+Transaction costs applied only on execution
+
+This immediately changed agent behavior.
+
+The policy now had to:
+
+BUY before it could SELL
+
+Accept exposure risk to earn reward
+
+Trade like a real market participant
+
+Phase 3.7 — Why “Number of Trades” Was Lying
+
+Even after this fix, trade counts still looked wrong.
+
+That turned out to be an evaluation mistake, not an RL one.
+
+I was counting round trips instead of executed actions.
+
+In reality:
+
+A BUY is a trade
+
+A SELL is a trade
+
+A forced liquidation is also a trade
+
+Once I switched to execution-based trade counting, the results finally aligned with reality.
+
+Phase 3.8 — The Final Multi-Asset Results
+
+After all fixes, retraining, and clean evaluation, the shared PPO policy produced:
+
+Different behavior per asset
+
+Non-zero executed trades
+
+Modest but consistent PnL
+
+No asset blow-ups
+
+Stable risk-aware behavior
+
+Example outcomes:
+
+AAPL and NVDA → moderate profits
+
+MSFT → near-flat
+
+TSLA → fewer but higher-impact trades
+
+This confirmed something important:
+
+A single PPO policy can generalize across assets — but it becomes conservative by design.
+
+Phase 3 — What I Learned (The Real Takeaways)
+
+This phase taught me more than any tutorial ever could:
+
+Environment design matters more than models
+
+PPO will exploit any loophole you leave open
+
+Risk-aware objectives suppress aggressive trading
+
+Multi-asset generalization forces conservatism
+
+Evaluation bugs are more dangerous than training bugs
+
+Honest results are more valuable than flashy backtests
+
+Most importantly:
+
+Reinforcement learning trading isn’t about “making money in backtests” — it’s about understanding why a policy behaves the way it does.
+
+Where This Leads Next
+
+Phase 3 answered whether a shared policy can generalize.
+
+It did.
+
+But it also raised a deeper question:
+
+How does risk appetite shape trading behavior?
+
+That’s what comes next.

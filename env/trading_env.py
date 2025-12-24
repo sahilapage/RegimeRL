@@ -34,47 +34,108 @@ class TradingEnv(gym.Env):
             dtype=np.float32
         )
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+
         self.current_step = 0
         self.balance = self.initial_balance
-        self.peak_value = self.initial_balance
         self.positions = 0
         self.entry_price = 0.0
+        self.peak_value = self.initial_balance
 
-        return self._get_state()
+        obs = self._get_state()
+        self.last_obs = obs
+        info = {}
+
+        return obs, info
+
 
     def step(self, action):
-      done = False
+        terminated = False
+        truncated = False
 
-      prev_price = self._get_price(self.current_step)
-      prev_value = self.balance + self.positions * prev_price
+    # =====================================================
+    # 1. TERMINATION GUARD (MUST BE FIRST)
+    # =====================================================
+        if self.current_step >= len(self.windows) - 1:
+            terminated = True
 
-      if action == 1 and self.positions == 0:  # BUY
-          self.positions = 1
-          self.entry_price = prev_price
-          self.balance -= self.transaction_cost
+    # Force liquidation if holding
+            if self.positions == 1:
+                final_price = self._get_price(self.current_step)
+                self.balance += final_price
+                self.positions = 0
 
-      elif action == 2 and self.positions == 1:  # SELL
-          self.positions = 0
-          self.entry_price = 0.0
-          self.balance -= self.transaction_cost
+            final_value = self.balance
+            reward = final_value - self.peak_value  # final settlement reward
 
-      self.current_step += 1
-      if self.current_step >= len(self.windows) - 1:
-          done = True
-
-      curr_price = self._get_price(self.current_step)
-      curr_value = self.balance + self.positions * curr_price
-
-      self.peak_value = max(self.peak_value, curr_value)
-      drawdown = self.peak_value - curr_value
-
-      LAMBDA_DD = 0.001  # risk aversion strength
-      reward = (curr_value - prev_value) - LAMBDA_DD * drawdown
-
-      return self._get_state(), reward, done, {}
-
+            return self.last_obs, reward, terminated, truncated, {}
     
+    # =====================================================
+    # 2. ACTION MASKING (CRITICAL FIX)
+    # =====================================================
+    # Cannot SELL if no position
+        if self.positions == 0 and action == 2:
+            action = 0  # HOLD
+
+    # Cannot BUY if already holding
+        if self.positions == 1 and action == 1:
+            action = 0  # HOLD
+
+    # =====================================================
+    # 3. CURRENT PRICE & PORTFOLIO VALUE
+    # =====================================================
+        curr_price = self._get_price(self.current_step)
+        prev_value = self.balance + self.positions * curr_price
+
+    # =====================================================
+    # 4. EXECUTE ACTION (ONLY IF VALID)
+    # =====================================================
+        if action == 1 and self.positions == 0:  # BUY
+            self.positions = 1
+            self.entry_price = curr_price
+            self.balance -= self.transaction_cost
+
+        elif action == 2 and self.positions == 1:  # SELL
+            self.positions = 0
+            self.entry_price = 0.0
+            self.balance -= self.transaction_cost
+
+    # =====================================================
+    # 5. ADVANCE TIME
+    # =====================================================
+        self.current_step += 1
+
+    # =====================================================
+    # 6. NEXT PRICE & CURRENT VALUE
+    # =====================================================
+        next_price = self._get_price(self.current_step)
+        curr_value = self.balance + self.positions * next_price
+
+    # =====================================================
+    # 7. DRAWDOWN TRACKING
+    # =====================================================
+        self.peak_value = max(self.peak_value, curr_value)
+        drawdown = self.peak_value - curr_value
+
+    # =====================================================
+    # 8. RISK-AWARE REWARD
+    # =====================================================
+        LAMBDA_DD = 0.001
+        reward = (curr_value - prev_value) - LAMBDA_DD * drawdown
+
+    # Small inactivity penalty (prevents "do nothing forever")
+        if action == 0:
+            reward -= 1e-5
+
+    # =====================================================
+    # 9. NEXT OBSERVATION (SAFE)
+    # =====================================================
+        obs = self._get_state()
+        self.last_obs = obs
+
+        return obs, reward, terminated, truncated, {}
+
     def _get_state(self):
         window = self.windows[self.current_step].unsqueeze(0)
         with torch.no_grad():
