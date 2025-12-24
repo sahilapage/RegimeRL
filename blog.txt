@@ -1,0 +1,341 @@
+I Tried to Build an AI Trading System — and Ended Up Learning How Real Quant Research Actually Works
+
+This is not a story about beating the market.
+It’s a story about why most AI trading projects fail, and what happens when you try to do one correctly.
+
+1. The Motivation (and the Naive Beginning)
+
+Like many engineering students interested in machine learning and finance, I started with a simple question:
+
+Can I build an AI that trades stocks?
+
+At first, I thought the answer would involve:
+
+predicting prices
+
+training fancy neural networks
+
+optimizing accuracy
+
+But after looking at dozens of “AI trading” projects online, I noticed a pattern:
+
+Most of them were fundamentally broken.
+
+They:
+
+leaked future data
+
+optimized meaningless rewards
+
+overtraded aggressively
+
+looked profitable in backtests but would collapse in reality
+
+I didn’t want to build something that looked impressive.
+I wanted to build something that was correct — even if it wasn’t profitable.
+
+That decision changed everything.
+
+2. The First Mental Shift: Prediction Is Not Trading
+
+One realization changed the direction of the entire project:
+
+Trading is not prediction. Trading is decision-making under uncertainty.
+
+In real trading:
+
+You decide when to enter
+
+You decide when to exit
+
+You manage risk and capital
+
+Accuracy doesn’t matter — PnL does
+
+That naturally led me to Reinforcement Learning (RL).
+
+RL doesn’t predict prices.
+It learns policies — sequences of decisions — based on consequences.
+
+That felt much closer to how real traders operate.
+
+3. The System I Built (At a High Level)
+
+The core system looks like this:
+
+Market Data → CNN + LSTM Encoder → PPO Agent → Buy / Sell / Hold
+
+
+CNN learns short-term price patterns
+
+LSTM captures temporal context
+
+PPO learns a trading policy
+
+A custom trading environment simulates balance, positions, and transaction costs
+
+This wasn’t a “model”.
+It was a decision-making system.
+
+4. Reward Design: Where Everything Went Wrong
+
+The hardest part of the project wasn’t neural networks.
+It was reward design.
+
+Initially, I tried things like:
+
+rewarding unrealized profits
+
+penalizing too many trades
+
+giving small rewards for holding winners
+
+The result was disastrous.
+
+The agent:
+
+traded constantly
+
+accumulated positive rewards
+
+ended with zero real profit
+
+This is called reward hacking.
+
+The agent wasn’t learning to trade.
+It was learning to exploit my reward function.
+
+5. The Breakthrough: Portfolio-Value Reward
+
+Eventually, I realized something fundamental:
+
+If the reward is not money, the agent will not care about money.
+
+So I changed the reward to a single, brutally simple rule:
+
+reward = change in total portfolio value
+
+
+Where:
+
+portfolio value = balance + (position × current price)
+
+
+This one change:
+
+eliminated reward hacking
+
+penalized overtrading naturally (via transaction costs)
+
+forced the agent to care about actual money
+
+This was the moment the project stopped being a toy.
+
+6. What “Good” RL Training Actually Looks Like
+
+Another surprise: good RL training looks boring.
+
+Healthy training looked like:
+
+stable KL divergence
+
+low value loss
+
+explained variance close to 1
+
+no wild oscillations
+
+Unhealthy training looked like:
+
+huge early profits
+
+extreme volatility
+
+constant trading
+
+When my PPO training converged quietly, I realized something important:
+
+Stability matters more than excitement.
+
+7. Walk-Forward Testing (Where Most Projects Cheat)
+
+This is where most ML trading projects quietly fail.
+
+I enforced a strict walk-forward setup:
+
+Training data: 2018–2021
+
+Test data: 2022–2024
+
+Rules:
+
+no retraining on test data
+
+no hyperparameter tuning
+
+same frozen policy
+
+This mimics real deployment:
+
+Train on the past. Deploy into the future.
+
+Anything else is data leakage.
+
+8. Market Regimes — Without Feeding Indicators to the Model
+
+To understand behavior, I classified the test period into:
+
+trending markets
+
+sideways markets
+
+volatile markets
+
+Important detail:
+
+These regime labels were used only for analysis, not as model inputs.
+
+They were computed after trading, using:
+
+log returns
+
+rolling volatility
+
+The agent never “knew” the regime.
+I used them only to interpret behavior.
+
+9. The Results (and Why They Mattered)
+
+On completely unseen data, the agent behaved like this:
+
+One surprising outcome was that the agent did not primarily trade during trending regimes. Instead, it executed a larger number of trades during sideways market conditions, generating modest positive returns, while experiencing losses during some trending periods. This suggests that the learned policy behaves more like a short-horizon or mean-reversion strategy rather than a classical trend follower. Importantly, this behavior emerged without any explicit regime labels or indicators provided to the model, highlighting how reinforcement learning policies can converge to non-obvious strategies under realistic constraints.
+
+This shocked me.
+
+The agent wasn’t trying to trade everywhere.
+It was being selective.
+
+That’s exactly how real traders behave.
+
+10. Debugging Hell (and Why It Was Worth It)
+
+This project was not smooth.
+
+I ran into:
+
+NaNs from log(0) in price data
+
+off-by-one errors in regime alignment
+
+inconsistent evaluation outputs
+
+confusion around determinism in RL
+
+Each bug forced me to learn something real:
+
+numerical stability matters
+
+evaluation must be deterministic
+
+encoders must be in .eval() mode
+
+rerunning experiments casually breaks scientific validity
+
+These weren’t beginner mistakes.
+They were research-level lessons.
+
+11. Why Results Changed When I Re-Ran Evaluation
+
+At one point, I re-ran evaluation and saw different results — even with deterministic actions.
+
+That taught me a crucial rule of research:
+
+Deterministic actions do not guarantee deterministic experiments.
+
+Encoder modes, seeds, and evaluation context matter.
+
+I learned to:
+
+lock seeds
+
+freeze models
+
+run evaluation once
+
+save results and move on
+
+That discipline matters more than squeezing out better numbers.
+
+12. What I Actually Built (Honestly)
+
+I did not build:
+
+a stock price predictor
+
+a get-rich-quick bot
+
+an AI that beats the market
+
+I built:
+
+a correct RL trading system
+
+with realistic constraints
+
+evaluated honestly
+
+that behaves sensibly under different market conditions
+
+That’s rare — especially at a student level.
+
+13. Why This Matters (Even Without Big Profits)
+
+In finance:
+
+one profitable backtest means nothing
+
+correctness means everything
+
+This project demonstrates:
+
+understanding of RL beyond tutorials
+
+awareness of data leakage
+
+respect for market realism
+
+ability to debug subtle system-level issues
+
+Those are the skills real quants care about.
+
+14. This Is Only Phase 1
+
+What I’ve described here is Phase 1.
+
+Next phases will include:
+
+explicit risk-aware rewards (drawdown control)
+
+multi-asset training
+
+execution delays and slippage
+
+statistical ablation studies
+
+I’ll document each phase honestly — including failures.
+
+Final Thought
+
+The biggest lesson so far:
+
+If a trading project looks impressive too early, it’s probably wrong.
+
+This one looked boring for a long time.
+
+That’s how I knew it was real.
+
+This post documents Phase 1 of an ongoing project.
+
+I’ll continue this series as I move into risk-aware objectives, multi-asset learning, and execution modeling.
+
+If you’re interested, stay tuned — the hard parts are just beginning.
