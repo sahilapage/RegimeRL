@@ -339,3 +339,333 @@ This post documents Phase 1 of an ongoing project.
 I’ll continue this series as I move into risk-aware objectives, multi-asset learning, and execution modeling.
 
 If you’re interested, stay tuned — the hard parts are just beginning.
+
+
+
+Part 2 — Teaching the Agent to Fear Losses: Risk-Aware Reinforcement Learning
+
+This post continues Phase 1 of my reinforcement-learning trading project. If you haven’t read it, Part 1 covers the motivation, architecture, reward hacking issues, and walk-forward regime evaluation.
+
+15. A Hard Realization After Phase 1
+
+Phase 1 left me with an uncomfortable but honest result.
+
+The agent:
+
+sometimes made money
+
+sometimes lost money
+
+behaved very differently across market regimes
+
+Most importantly, it did not care how bad the losses were.
+
+It only cared about step-to-step profit.
+
+That raised a serious question:
+
+What if the agent makes money overall, but experiences large drawdowns along the way?
+
+In real trading, that’s unacceptable.
+
+No professional trader, fund, or desk optimizes raw profit alone.
+They optimize profit under risk constraints.
+
+That’s when Phase 2 began.
+
+16. Why Profit Alone Is Not Enough
+
+In Phase 1, the reward was:
+
+reward = change in portfolio value
+
+
+This is correct — but incomplete.
+
+Because it teaches the agent:
+
+“making money is good”
+
+but not:
+
+“losing a lot is very bad”
+
+In real markets:
+
+two strategies can have the same profit
+
+but vastly different drawdowns
+
+and only one would ever be deployed
+
+So I needed to teach the agent risk awareness.
+
+17. Drawdown — Explained Without Math
+
+Imagine this equity curve:
+
+10000 → 10200 → 10100 → 10300 → 9800
+
+
+Even if the final result recovers later, that drop from 10300 to 9800 is painful.
+
+That drop is called drawdown.
+
+Drawdown measures:
+
+How far you fall from your best point so far.
+
+Quants care about drawdown because:
+
+it reflects psychological pressure
+
+capital constraints
+
+real-world survivability
+
+18. The Risk-Aware Reward (The Core Change)
+
+In Phase 2, I changed the reward to:
+
+reward = Δ portfolio value − λ × drawdown
+
+
+This does one crucial thing:
+
+It tells the agent that large losses are worse than missed profits.
+
+The agent is no longer just a money-seeker.
+It becomes loss-averse.
+
+This single modification completely changed behavior.
+
+19. Training Again — From Scratch (No Shortcuts)
+
+Because the objective changed, I retrained everything from scratch:
+
+Same PPO algorithm
+
+Same CNN + LSTM encoder
+
+Same walk-forward split:
+
+Train: 2018–2021
+
+Test: 2022–2024
+
+No retraining on test data
+
+No tuning on results
+
+Changing the reward means changing the problem.
+So the evaluation protocol had to remain identical.
+
+This is non-negotiable in research.
+
+20. Phase 2 Walk-Forward Results
+
+On unseen test data, the behavior shifted dramatically.
+
+The agent now showed:
+
+Sideways markets
+
+highest profitability
+
+many small trades
+
+very smooth equity curve
+
+Volatile markets
+
+reduced exposure
+
+smaller position sizes
+
+controlled losses
+
+Trending markets
+
+early exits
+
+missed long continuations
+
+overall negative PnL
+
+At first glance, this looks disappointing.
+
+But it’s actually exactly what we asked the agent to do.
+
+21. Understanding the Trade-Off (This Is the Key Insight)
+
+Trends are not smooth lines.
+
+They contain:
+
+pullbacks
+
+temporary losses
+
+noise before continuation
+
+By penalizing drawdown, I told the agent:
+
+“If holding through pain is risky, don’t do it.”
+
+So the agent:
+
+exited trends early
+
+avoided deep pullbacks
+
+sacrificed upside for safety
+
+This is not a bug.
+
+This is the cost of risk aversion.
+
+22. Why This Result Is More Valuable Than Profit
+
+Phase 2 taught me something far more important than “how to make money”.
+
+It showed that:
+
+reward design directly shapes behavior
+
+different objectives produce fundamentally different strategies
+
+there is no single “best” trading policy
+
+Instead, there are trade-offs.
+
+This is exactly how real quant research works:
+
+define objective
+
+observe behavior
+
+accept limitations
+
+iterate carefully
+
+23. Phase 1 vs Phase 2 — Conceptually
+
+Phase 1 agent:
+
+opportunistic
+
+sometimes reckless
+
+profit-seeking
+
+sensitive to regimes
+
+Phase 2 agent:
+
+conservative
+
+drawdown-aware
+
+survives volatility better
+
+avoids large losses
+
+gives up on trends
+
+Neither is “better” in isolation.
+
+They solve different problems.
+
+24. What Phase 2 Proved
+
+By the end of Phase 2, I could confidently say:
+
+the system generalizes to unseen data
+
+behavior changes predictably with objective changes
+
+risk can be explicitly encoded into RL rewards
+
+regime-dependent performance is unavoidable and explainable
+
+This is not a toy project anymore.
+
+This is experimental reinforcement-learning research.
+
+25. Why I Did Not “Fix” the Trend Losses Yet
+
+It’s tempting to immediately tweak things:
+
+reduce drawdown penalty
+
+add trend indicators
+
+force longer holding
+
+I deliberately did none of that.
+
+Because doing so would mix:
+
+objective design
+
+feature engineering
+
+regime awareness
+
+And that would destroy interpretability.
+
+Before fixing behavior, you must understand why it exists.
+
+Phase 2 gave me that understanding.
+
+26. Where This Naturally Leads Next
+
+Phase 2 answered this question:
+
+What happens when an RL trader is explicitly punished for risk?
+
+The next question is harder:
+
+Can we balance risk control and opportunity capture at the same time?
+
+That’s where:
+
+multi-asset learning
+
+shared policies
+
+richer state representations
+
+come into play.
+
+But that is Phase 3.
+
+Closing Thoughts Before Phase 3
+
+Up to this point, the project has not been about:
+
+beating benchmarks
+
+maximizing profit
+
+showing flashy curves
+
+It has been about:
+
+correctness
+
+discipline
+
+honesty
+
+understanding cause and effect
+
+Most trading projects skip these steps.
+
+I didn’t.
+
+This concludes Phase 2 of the project.
+
+In the next part, I’ll explore whether training across multiple assets can stabilize behavior and recover lost opportunities without sacrificing risk control.
+
+Phase 3 is where things get truly interesting.

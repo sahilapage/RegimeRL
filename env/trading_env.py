@@ -18,7 +18,7 @@ class TradingEnv(gym.Env):
         self.encoder = encoder
         self.initial_balance = initial_balance
         self.transaction_cost = transaction_cost
-
+        self.peak_value = initial_balance
         self.current_step = 0
         self.balance = initial_balance
         self.positions = 0
@@ -37,6 +37,7 @@ class TradingEnv(gym.Env):
     def reset(self):
         self.current_step = 0
         self.balance = self.initial_balance
+        self.peak_value = self.initial_balance
         self.positions = 0
         self.entry_price = 0.0
 
@@ -65,7 +66,11 @@ class TradingEnv(gym.Env):
       curr_price = self._get_price(self.current_step)
       curr_value = self.balance + self.positions * curr_price
 
-      reward = curr_value - prev_value
+      self.peak_value = max(self.peak_value, curr_value)
+      drawdown = self.peak_value - curr_value
+
+      LAMBDA_DD = 0.001  # risk aversion strength
+      reward = (curr_value - prev_value) - LAMBDA_DD * drawdown
 
       return self._get_state(), reward, done, {}
 
