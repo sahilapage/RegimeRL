@@ -1,6 +1,7 @@
 import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
+import unittest
 
 from env.finiq_env import FinIQEnv
 from models.cnn import MarketCNN
@@ -40,7 +41,48 @@ model = PPO(
     verbose=1
 )
 
-model.learn(total_timesteps=600_000)
-model.save("ppo_finiq_final")
+class TestRewardFunction(unittest.TestCase):
+    def test_reward_function(self):
+        env = make_env()
+        obs = env.reset()
+        action = env.action_space.sample()
+        next_obs, reward, done, info = env.step(action)
+        self.assertIsNotNone(reward)
+        self.assertIsInstance(reward, float)
 
-print("✅ TRAINING COMPLETE")
+    def test_reward_function_multiple_steps(self):
+        env = make_env()
+        obs = env.reset()
+        for _ in range(10):
+            action = env.action_space.sample()
+            next_obs, reward, done, info = env.step(action)
+            self.assertIsNotNone(reward)
+            self.assertIsInstance(reward, float)
+            if done:
+                break
+
+    def test_reward_function_edge_cases(self):
+        env = make_env()
+        obs = env.reset()
+        action = env.action_space.sample()
+        next_obs, reward, done, info = env.step(action)
+        self.assertIsNotNone(reward)
+        self.assertIsInstance(reward, float)
+
+        # Test with zero action
+        action = [0.0] * env.action_space.shape[0]
+        next_obs, reward, done, info = env.step(action)
+        self.assertIsNotNone(reward)
+        self.assertIsInstance(reward, float)
+
+        # Test with maximum action
+        action = [1.0] * env.action_space.shape[0]
+        next_obs, reward, done, info = env.step(action)
+        self.assertIsNotNone(reward)
+        self.assertIsInstance(reward, float)
+
+if __name__ == "__main__":
+    unittest.main(exit=False)
+    model.learn(total_timesteps=600_000)
+    model.save("ppo_finiq_final")
+    print("TRAINING COMPLETE")
