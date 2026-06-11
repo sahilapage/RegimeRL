@@ -1,6 +1,7 @@
 import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
+from src.logger import Logger
 
 from env.finiq_env import FinIQEnv
 from models.cnn import MarketCNN
@@ -40,7 +41,13 @@ model = PPO(
     verbose=1
 )
 
-model.learn(total_timesteps=600_000)
+logger = Logger()
+
+def callback(event):
+    logger.log_metrics(event)
+
+model.learn(total_timesteps=600_000, callback=callback)
 model.save("ppo_finiq_final")
 
-print("✅ TRAINING COMPLETE")
+print("TRAINING COMPLETE")
+logger.save_logs("training_logs")
